@@ -1,4 +1,7 @@
-# slashdocs
+<p align="center">
+  <img src="https://raw.githubusercontent.com/dorochadev/slashdocs/main/.github/assets/banner.webp"
+       alt="slashdocs — turn your Discord bot commands into beautiful documentation" width="100%">
+</p>
 
 Auto-generated command docs for discord.py bots — attach one line and your
 commands page writes itself on startup.
