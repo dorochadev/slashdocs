@@ -30,10 +30,15 @@ def compute_diff(old: Manifest | None, new: Manifest) -> Diff:
     if old is None:
         return Diff(added=tuple(sorted(new_hashes)))
     old_hashes = {c.slug: c.content_hash() for c in old.commands}
+    prefix_changed = old.prefix != new.prefix  # prefix is rendered into every page
     return Diff(
         added=tuple(sorted(s for s in new_hashes if s not in old_hashes)),
         changed=tuple(
-            sorted(s for s in new_hashes if s in old_hashes and new_hashes[s] != old_hashes[s])
+            sorted(
+                s
+                for s in new_hashes
+                if s in old_hashes and (prefix_changed or new_hashes[s] != old_hashes[s])
+            )
         ),
         removed=tuple(sorted(s for s in old_hashes if s not in new_hashes)),
     )
@@ -43,7 +48,11 @@ def load_state(out_dir: Path) -> Manifest | None:
     path = out_dir / STATE_FILENAME
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Manifest.from_dict(data["manifest"])
+        manifest = Manifest.from_dict(data["manifest"])
+        if manifest.schema_version != Manifest().schema_version:
+            logger.warning("slashdocs: state %s has an old schema; regenerating all docs", path)
+            return None
+        return manifest
     except FileNotFoundError:
         return None
     except Exception:
@@ -52,10 +61,6 @@ def load_state(out_dir: Path) -> Manifest | None:
 
 
 def save_state(out_dir: Path, manifest: Manifest) -> None:
-    payload = {
-        "schema_version": manifest.schema_version,
-        "hash": manifest.content_hash(),
-        "manifest": manifest.to_dict(),
-    }
+    payload = {"manifest": manifest.to_dict()}
     path = out_dir / STATE_FILENAME
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

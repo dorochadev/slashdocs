@@ -41,3 +41,19 @@ def test_load_state_missing_returns_none(tmp_path: Path) -> None:
 def test_load_state_corrupt_returns_none(tmp_path: Path) -> None:
     (tmp_path / STATE_FILENAME).write_text("{not json", encoding="utf-8")
     assert load_state(tmp_path) is None
+
+
+def test_prefix_change_marks_all_common_slugs_changed() -> None:
+    old = Manifest(commands=(_cmd("a"), _cmd("b")), prefix="!")
+    new = Manifest(commands=(_cmd("a"), _cmd("b")), prefix="?")
+    diff = compute_diff(old, new)
+    assert diff.changed == ("a", "b")
+    assert not diff.added and not diff.removed
+
+
+def test_load_state_from_old_schema_returns_none(tmp_path: Path) -> None:
+    import json
+
+    v1 = {"manifest": {"schema_version": 1, "commands": []}}
+    (tmp_path / STATE_FILENAME).write_text(json.dumps(v1), encoding="utf-8")
+    assert load_state(tmp_path) is None
