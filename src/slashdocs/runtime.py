@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -43,8 +44,16 @@ def _run_mdx(output: MdxOutput, manifest: Manifest) -> Diff:
     if previous is not None and diff.is_empty:
         logger.info("slashdocs: docs up to date (%d commands)", len(manifest.commands))
         return diff
-    write_docs(output.path, manifest, diff, clean=output.clean, base_slug=output.base_slug)
-    save_state(output.path, manifest)
+    skipped = write_docs(
+        output.path, manifest, diff, clean=output.clean, base_slug=output.base_slug
+    )
+    # A slug the overwrite guard skipped must not be recorded as settled — otherwise
+    # it's never retried, even after the conflicting hand-written file goes away.
+    to_save = manifest
+    if skipped:
+        kept = tuple(c for c in manifest.commands if c.slug not in skipped)
+        to_save = replace(manifest, commands=kept)
+    save_state(output.path, to_save)
     logger.info(
         "slashdocs: %d added, %d changed, %d removed -> %s",
         len(diff.added),

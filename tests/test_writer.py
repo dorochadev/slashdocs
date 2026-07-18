@@ -241,3 +241,14 @@ def test_params_table_name_and_type_are_escaped() -> None:
     )
     out = render_command(doc)
     assert "| a\\|b\\<c | str\\|int\\<foo | yes |" in out
+
+
+def test_write_docs_reports_slugs_skipped_by_overwrite_guard(tmp_path: Path) -> None:
+    (tmp_path / "coinflip.mdx").write_text("# mine\n", encoding="utf-8")
+    skipped = write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
+    assert skipped == frozenset({"coinflip"})
+
+
+def test_write_docs_reports_no_skips_on_a_clean_run(tmp_path: Path) -> None:
+    skipped = write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
+    assert skipped == frozenset()

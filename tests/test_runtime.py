@@ -147,3 +147,20 @@ def test_one_failing_output_does_not_stop_the_others(
 def test_generate_prefix_override(tmp_path: Path) -> None:
     generate(make_bot(), tmp_path, prefix="?")
     assert "[?ping]" in (tmp_path / "index.mdx").read_text(encoding="utf-8")
+
+
+def test_generate_retries_a_guard_skipped_page_every_run(tmp_path: Path) -> None:
+    bot = make_bot()
+    (tmp_path / "coinflip.mdx").write_text("# mine\n", encoding="utf-8")  # no marker: guarded
+    generate(bot, tmp_path)
+    assert (tmp_path / "coinflip.mdx").read_text(encoding="utf-8") == "# mine\n"
+
+    # Unchanged bot, second run: must still retry (and warn) rather than treat as settled
+    diff = generate(bot, tmp_path)
+    assert diff.added == ("coinflip",) or "coinflip" in diff.changed or "coinflip" in diff.added
+
+    # Once the conflicting file is gone, the next run finally writes the real page
+    (tmp_path / "coinflip.mdx").unlink()
+    generate(bot, tmp_path)
+    assert (tmp_path / "coinflip.mdx").read_text(encoding="utf-8") != "# mine\n"
+    assert "coinflip" in (tmp_path / "coinflip.mdx").read_text(encoding="utf-8")
