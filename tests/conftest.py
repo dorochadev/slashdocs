@@ -46,3 +46,68 @@ def make_bot() -> commands.Bot:
         ...
 
     return bot
+
+
+class Moderation(commands.Cog):
+    """Cog whose name should become the default category."""
+
+    @commands.command(name="kick", help="Kick a member.")
+    async def kick(self, ctx: commands.Context, member: str) -> None:  # type: ignore[type-arg]
+        ...
+
+    @app_commands.command(name="warn", description="Warn a member.")
+    async def warn(self, interaction: discord.Interaction, member: str) -> None: ...
+
+
+async def make_kitchen_sink_bot() -> commands.Bot:
+    """Covers the walker's rarer paths: cogs, context menus, nested groups,
+    hidden prefix commands, prefix groups, unannotated params, slug collisions."""
+    bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
+
+    await bot.add_cog(Moderation())
+
+    # Context menu — out of scope for v1, must be skipped
+    @bot.tree.context_menu(name="Report")
+    async def report(interaction: discord.Interaction, message: discord.Message) -> None: ...
+
+    # Natively hidden prefix command (discord.py's own hidden flag)
+    @bot.command(name="sudo", help="Owner only.", hidden=True)
+    async def sudo(ctx: commands.Context) -> None:  # type: ignore[type-arg]
+        ...
+
+    # Prefix group with a subcommand carrying an unannotated param
+    @bot.group(name="tag", help="Manage tags.", invoke_without_command=True)
+    async def tag(ctx: commands.Context) -> None:  # type: ignore[type-arg]
+        ...
+
+    @tag.command(name="add", help="Add a tag.")
+    async def tag_add(ctx: commands.Context, name, value: str) -> None:  # type: ignore[no-untyped-def, type-arg]
+        ...
+
+    # Nested slash group (Discord allows depth 2)
+    admin = app_commands.Group(name="admin", description="Admin tools.")
+    admin_config = app_commands.Group(name="config", description="Admin config.", parent=admin)
+
+    @admin_config.command(name="reset", description="Reset config.")
+    async def admin_config_reset(interaction: discord.Interaction) -> None: ...
+
+    bot.tree.add_command(admin)
+
+    # Hidden slash group via @docs
+    hidden_group = app_commands.Group(name="internal", description="Internal tools.")
+    docs(hidden=True)(hidden_group)
+
+    @hidden_group.command(name="dump", description="Dump state.")
+    async def internal_dump(interaction: discord.Interaction) -> None: ...
+
+    bot.tree.add_command(hidden_group)
+
+    # Same name as slash AND prefix — prefix side must get the fallback slug
+    @bot.tree.command(name="stats", description="Server stats.")
+    async def stats_slash(interaction: discord.Interaction) -> None: ...
+
+    @bot.command(name="stats", help="Server stats (prefix).")
+    async def stats_prefix(ctx: commands.Context) -> None:  # type: ignore[type-arg]
+        ...
+
+    return bot

@@ -60,3 +60,46 @@ def test_hybrid_documented_once_as_hybrid() -> None:
 
 def test_walk_is_deterministic() -> None:
     assert walk_bot(make_bot()).content_hash() == walk_bot(make_bot()).content_hash()
+
+
+async def test_kitchen_sink_covers_rare_paths() -> None:
+    from conftest import make_kitchen_sink_bot
+
+    manifest = walk_bot(await make_kitchen_sink_bot())
+    by_name = {c.name: c for c in manifest.commands}
+
+    # Context menu skipped entirely
+    assert "Report" not in by_name
+
+    # Natively hidden prefix command and @docs-hidden slash group excluded
+    assert "sudo" not in by_name
+    assert "internal" not in by_name
+
+    # Cog name becomes the default category for both prefix and slash commands
+    assert by_name["kick"].category == "Moderation"
+    assert by_name["warn"].category == "Moderation"
+
+    # Prefix group documents its subcommand; unannotated param falls back to string
+    tag = by_name["tag"]
+    assert [s.name for s in tag.subcommands] == ["tag add"]
+    tag_add_params = {p.name: p for p in tag.subcommands[0].params}
+    assert tag_add_params["name"].type == "string"
+    assert tag_add_params["value"].type == "str"
+
+    # Nested slash group: admin > config > reset
+    admin = by_name["admin"]
+    assert [s.name for s in admin.subcommands] == ["admin config"]
+    assert [s.name for s in admin.subcommands[0].subcommands] == ["admin config reset"]
+
+    # Slug collision: slash claims the clean slug, prefix falls back
+    by_slug = {c.slug: c for c in manifest.commands}
+    assert by_slug["stats"].kind == "slash"
+    assert by_slug["prefix-stats"].kind == "prefix"
+
+
+def test_claim_slug_counter_suffix_when_fallback_also_taken() -> None:
+    from slashdocs.walker import _claim_slug
+
+    slugs = {"stats", "prefix-stats"}
+    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "stats-2"
+    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "stats-3"
