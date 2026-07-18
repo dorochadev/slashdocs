@@ -37,6 +37,10 @@ class CommandDoc:
     examples: tuple[str, ...] = ()
     notes: str = ""
     aliases: tuple[str, ...] = ()
+    permissions: tuple[str, ...] = ()  # human-readable, e.g. "Ban Members", "Booster Only"
+    cooldown_rate: int = 0  # 0 means no cooldown
+    cooldown_per: float = 0.0
+    tier: str = ""  # e.g. "Premium"; rendered as a badge
     subcommands: tuple[CommandDoc, ...] = ()
 
     def content_hash(self) -> str:
@@ -65,6 +69,10 @@ def _command_from_dict(data: dict[str, Any]) -> CommandDoc:
         examples=tuple(data.get("examples", ())),
         notes=data.get("notes", ""),
         aliases=tuple(data.get("aliases", ())),
+        permissions=tuple(data.get("permissions", ())),
+        cooldown_rate=data.get("cooldown_rate", 0),
+        cooldown_per=data.get("cooldown_per", 0.0),
+        tier=data.get("tier", ""),
         subcommands=tuple(_command_from_dict(c) for c in data.get("subcommands", ())),
     )
 
@@ -72,7 +80,8 @@ def _command_from_dict(data: dict[str, Any]) -> CommandDoc:
 @dataclass(frozen=True)
 class Manifest:
     commands: tuple[CommandDoc, ...] = ()
-    schema_version: int = 1
+    prefix: str = "!"
+    schema_version: int = 2
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -81,7 +90,8 @@ class Manifest:
     def from_dict(cls, data: dict[str, Any]) -> Manifest:
         return cls(
             commands=tuple(_command_from_dict(c) for c in data.get("commands", ())),
-            schema_version=data.get("schema_version", 1),
+            prefix=data.get("prefix", "!"),
+            schema_version=data.get("schema_version", 2),
         )
 
     def canonical_json(self) -> str:
