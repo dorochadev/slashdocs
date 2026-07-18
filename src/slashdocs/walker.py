@@ -13,7 +13,7 @@ from .decorator import DocsExtras, get_extras
 from .model import CommandDoc, Manifest, ParamDoc
 
 
-def walk_bot(bot: commands.Bot) -> Manifest:
+def walk_bot(bot: commands.Bot, *, prefix: str | None = None) -> Manifest:
     out: list[CommandDoc] = []
     slugs: set[str] = set()
 
@@ -45,7 +45,60 @@ def walk_bot(bot: commands.Bot) -> Manifest:
             out.append(doc)
 
     out.sort(key=lambda d: (d.category, d.name))
-    return Manifest(commands=tuple(out))
+    return Manifest(
+        commands=tuple(out),
+        prefix=prefix if prefix is not None else _detect_prefix(bot),
+    )
+
+
+def _detect_prefix(bot: commands.Bot) -> str:
+    raw = bot.command_prefix
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, (list, tuple)) and raw and isinstance(raw[0], str):
+        return raw[0]
+    return "!"  # callable prefixes are opaque; use walk_bot(prefix=...) to override
+
+
+def _perm_name(flag: str) -> str:
+    return flag.replace("_", " ").title()
+
+
+def _merge_permissions(introspected: tuple[str, ...], extras: DocsExtras | None) -> tuple[str, ...]:
+    extra = extras.permissions if extras else ()
+    return tuple(dict.fromkeys((*introspected, *extra)))
+
+
+def _slash_permissions(cmd: object) -> tuple[str, ...]:
+    perms = getattr(cmd, "default_permissions", None)
+    if perms is None:
+        return ()
+    return tuple(_perm_name(name) for name, value in perms if value)
+
+
+def _check_permissions(cmd: object) -> tuple[str, ...]:
+    """Best-effort: read the perms dict out of @has_permissions-style check closures."""
+    names: list[str] = []
+    for check in getattr(cmd, "checks", ()):
+        try:
+            freevars = check.__code__.co_freevars
+            closure = check.__closure__ or ()
+            for var, cell in zip(freevars, closure, strict=False):
+                if var == "perms" and isinstance(cell.cell_contents, dict):
+                    names.extend(_perm_name(k) for k, v in cell.cell_contents.items() if v)
+        except Exception:  # arbitrary user checks; introspection must never break the walk
+            continue
+    return tuple(dict.fromkeys(names))
+
+
+def _cooldown(cmd: object) -> tuple[int, float]:
+    """Prefix/hybrid cooldowns only; slash-side cooldown checks are not introspectable."""
+    cd = getattr(cmd, "cooldown", None)
+    rate = getattr(cd, "rate", None)
+    per = getattr(cd, "per", None)
+    if rate is None or per is None:
+        return (0, 0.0)
+    return (int(rate), float(per))
 
 
 def _walk_slash(
@@ -66,6 +119,8 @@ def _walk_slash(
         params=tuple(_param_from_app(p) for p in cmd.parameters),
         examples=extras.examples if extras else (),
         notes=extras.notes if extras else "",
+        permissions=_merge_permissions(_slash_permissions(cmd), extras),
+        tier=extras.tier if extras else "",
     )
 
 
@@ -91,6 +146,8 @@ def _walk_group(
         category=_category(extras, _cog_name(group)),
         examples=extras.examples if extras else (),
         notes=extras.notes if extras else "",
+        permissions=_merge_permissions(_slash_permissions(group), extras),
+        tier=extras.tier if extras else "",
         subcommands=tuple(subs),
     )
 
@@ -107,6 +164,7 @@ def _walk_prefix(
     if extras is not None and extras.hidden:
         return None
     is_hybrid = isinstance(cmd, (commands.HybridCommand, commands.HybridGroup))
+    rate, per = _cooldown(cmd)
     subs: tuple[CommandDoc, ...] = ()
     if isinstance(cmd, commands.Group):
         subs = tuple(
@@ -128,6 +186,10 @@ def _walk_prefix(
         examples=extras.examples if extras else (),
         notes=extras.notes if extras else "",
         aliases=tuple(cmd.aliases),
+        permissions=_merge_permissions(_check_permissions(cmd), extras),
+        cooldown_rate=rate,
+        cooldown_per=per,
+        tier=extras.tier if extras else "",
         subcommands=subs,
     )
 

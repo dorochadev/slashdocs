@@ -42,6 +42,7 @@ def make_bot() -> commands.Bot:
 
     # Hybrid command — must be documented exactly once, kind="hybrid"
     @bot.hybrid_command(name="balance", description="Get the money balance of someone.")
+    @docs(permissions="Booster Only", tier="Premium")
     async def balance(ctx: commands.Context, user: str) -> None:  # type: ignore[type-arg]
         ...
 
@@ -52,10 +53,13 @@ class Moderation(commands.Cog):
     """Cog whose name should become the default category."""
 
     @commands.command(name="kick", help="Kick a member.")
+    @commands.has_permissions(kick_members=True)
+    @commands.cooldown(1, 5.0, commands.BucketType.user)
     async def kick(self, ctx: commands.Context, member: str) -> None:  # type: ignore[type-arg]
         ...
 
     @app_commands.command(name="warn", description="Warn a member.")
+    @app_commands.default_permissions(moderate_members=True)
     async def warn(self, interaction: discord.Interaction, member: str) -> None: ...
 
 

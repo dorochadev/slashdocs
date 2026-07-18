@@ -129,3 +129,35 @@ def test_collision_counter_appends_to_chosen_base() -> None:
 
     slugs = {"ping", "prefix-ping"}
     assert _claim_slug("ping", slugs, fallback="prefix-ping") == "prefix-ping-2"
+
+
+def test_prefix_captured_and_overridable() -> None:
+    import discord
+    from discord.ext import commands
+
+    assert walk_bot(make_bot()).prefix == "!"
+    listy = commands.Bot(command_prefix=["?", "!"], intents=discord.Intents.none())
+    assert walk_bot(listy).prefix == "?"
+    called = commands.Bot(command_prefix=lambda bot, msg: "!", intents=discord.Intents.none())
+    assert walk_bot(called).prefix == "!"  # callable: fall back to default
+    assert walk_bot(called, prefix=",").prefix == ","
+
+
+def test_extras_permissions_and_tier_on_hybrid() -> None:
+    manifest = walk_bot(make_bot())
+    balance = next(c for c in manifest.commands if c.name == "balance")
+    assert balance.permissions == ("Booster Only",)
+    assert balance.tier == "Premium"
+
+
+async def test_introspected_permissions_and_cooldowns() -> None:
+    from conftest import make_kitchen_sink_bot
+
+    manifest = walk_bot(await make_kitchen_sink_bot())
+    by_name = {c.name: c for c in manifest.commands}
+    kick = by_name["kick"]
+    assert kick.permissions == ("Kick Members",)
+    assert (kick.cooldown_rate, kick.cooldown_per) == (1, 5.0)
+    warn = by_name["warn"]
+    assert warn.permissions == ("Moderate Members",)
+    assert (warn.cooldown_rate, warn.cooldown_per) == (0, 0.0)
