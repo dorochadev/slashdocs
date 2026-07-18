@@ -3,7 +3,39 @@
 All notable changes to this project will be documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] - 2026-07-18
+
+### Added
+- Multi-output `attach(bot, outputs=[...])`: `mdx()`, `commands_json()` (stable
+  schema-v2 JSON feed for custom /commands frontends), and `commands_page()`
+  (self-contained searchable commands.html — category sidebar with counts,
+  live search, parameter chips, permission/tier badges).
+- Manifest schema v2: bot prefix, permissions, cooldowns, and tier per command.
+  Slash `default_permissions`, prefix/hybrid `has_permissions` /
+  `has_guild_permissions` and `cooldown` decorators are introspected
+  automatically; `@docs(permissions=..., tier=...)` covers custom checks.
+- Prefix commands render with the bot's real `command_prefix`
+  (`attach(..., prefix=...)` overrides callable prefixes).
+- Docs generation now runs off the event loop (`asyncio.to_thread`), and each
+  configured output is failure-isolated.
+
+### Fixed
+- Hybrid commands keep their slash-side parameter metadata
+  (`@app_commands.describe`, choices, defaults).
+- MDX-significant characters (`<`, `{`) in descriptions/notes are escaped, and
+  table cells are single-line and pipe-safe, so generated pages can no longer
+  break the docs-site build.
+- Slugs are sanitized to file-safe names (`index`/`meta` reserved), closing a
+  path-traversal hole for hostile command names.
+- Hand-written files are never overwritten: the `generated_by: slashdocs`
+  marker now guards writes as well as deletion.
+- JSON/HTML outputs are stateless (byte-compare), so a deleted output file is
+  regenerated on the next startup.
+
+### Removed
+- The `fmt=` parameter on `attach()` (replaced by `outputs=`).
+
+## [0.1.0] - 2026-07-18
 
 ### Added
 - `slashdocs.attach(bot, out=...)` — run-once startup hook that introspects the
