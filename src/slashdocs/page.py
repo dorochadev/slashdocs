@@ -15,6 +15,7 @@ import logging
 import re
 from pathlib import Path
 
+from ._io import write_if_changed
 from .model import Manifest
 
 logger = logging.getLogger("slashdocs")
@@ -205,13 +206,7 @@ def write_page(
     path: Path, manifest: Manifest, *, title: str = "Commands", accent: str = "#5865F2"
 ) -> bool:
     """Write commands.html if its content would change. Returns True if written."""
-    text = render_page(manifest, title=title, accent=accent)
-    try:
-        if path.read_text(encoding="utf-8") == text:
-            return False
-    except (FileNotFoundError, UnicodeDecodeError):
-        pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    logger.info("slashdocs: wrote %s", path)
-    return True
+    written = write_if_changed(path, render_page(manifest, title=title, accent=accent))
+    if written:
+        logger.info("slashdocs: wrote %s", path)
+    return written

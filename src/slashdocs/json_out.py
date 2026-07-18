@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 
+from ._io import write_if_changed
 from .model import Manifest
 
 logger = logging.getLogger("slashdocs")
@@ -21,13 +22,7 @@ def render_json(manifest: Manifest) -> str:
 
 def write_json(path: Path, manifest: Manifest) -> bool:
     """Write commands.json if its content would change. Returns True if written."""
-    text = render_json(manifest)
-    try:
-        if path.read_text(encoding="utf-8") == text:
-            return False
-    except (FileNotFoundError, UnicodeDecodeError):
-        pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    logger.info("slashdocs: wrote %s", path)
-    return True
+    written = write_if_changed(path, render_json(manifest))
+    if written:
+        logger.info("slashdocs: wrote %s", path)
+    return written
