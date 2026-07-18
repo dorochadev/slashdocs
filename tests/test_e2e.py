@@ -64,3 +64,18 @@ def test_upgrade_cleans_up_a_slug_that_sanitization_renamed(tmp_path: Path) -> N
 
     assert not old_page.exists()  # orphaned old-slug page is cleaned up
     assert (docs / "coinflip.mdx").exists()  # sanitized slug: no rename needed here
+
+
+def test_orphan_cleaned_up_even_when_state_is_completely_lost(tmp_path: Path) -> None:
+    """No baseline at all (missing/corrupt state) — compute_diff can't produce a
+    'removed' list, so write_docs must fall back to sweeping the directory itself."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    orphan = docs / "deleted-command.mdx"
+    orphan.write_text(f"---\n{GENERATED_MARKER}\n---\nstale\n", encoding="utf-8")
+    # No .slashdocs-manifest.json at all: state was never written, or the file was lost.
+
+    generate(make_bot(), outputs=[mdx(docs)])
+
+    assert not orphan.exists()
+    assert (docs / "coinflip.mdx").exists()  # the real, current commands still write fine

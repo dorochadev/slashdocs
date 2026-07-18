@@ -314,3 +314,29 @@ def test_hybrid_commands_show_both_invocation_forms() -> None:
     out = render_command(doc, prefix="?")
     assert "`/balance`" in out
     assert "`?balance`" in out
+
+
+def test_sweep_removes_orphaned_pages_when_there_is_no_diff_baseline(tmp_path: Path) -> None:
+    """When old state is missing entirely, diff.removed is empty (no baseline to
+    compare against) — sweep=True must still find and delete the orphan directly."""
+    (tmp_path / "deleted-command.mdx").write_text(
+        f"---\n{GENERATED_MARKER}\n---\nstale\n", encoding="utf-8"
+    )
+    (tmp_path / "handwritten.mdx").write_text("# mine, no marker\n", encoding="utf-8")
+    write_docs(
+        tmp_path,
+        Manifest(commands=(COINFLIP,)),
+        Diff(added=("coinflip",)),  # removed=() — no baseline, exactly the lost-state case
+        sweep=True,
+    )
+    assert not (tmp_path / "deleted-command.mdx").exists()
+    assert (tmp_path / "handwritten.mdx").exists()  # never touch unmarked files
+    assert (tmp_path / "coinflip.mdx").exists()
+
+
+def test_sweep_is_off_by_default_so_normal_runs_stay_cheap(tmp_path: Path) -> None:
+    (tmp_path / "deleted-command.mdx").write_text(
+        f"---\n{GENERATED_MARKER}\n---\nstale\n", encoding="utf-8"
+    )
+    write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
+    assert (tmp_path / "deleted-command.mdx").exists()  # untouched: sweep not requested

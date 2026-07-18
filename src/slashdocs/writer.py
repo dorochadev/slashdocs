@@ -220,10 +220,18 @@ def write_docs(
     *,
     clean: bool = True,
     base_slug: str = "/commands",
+    sweep: bool = False,
 ) -> frozenset[str]:
     """Write pages, index, and sidebar meta. Returns the added/changed slugs whose
     page was skipped by the overwrite guard — callers must not treat these as
-    settled, or a hand-written file at that path can never be retried."""
+    settled, or a hand-written file at that path can never be retried.
+
+    `sweep=True` scans the whole directory for orphaned generated pages instead of
+    trusting diff.removed. Pass it when there's no reliable previous state to diff
+    against (state file missing or unreadable) — otherwise a page whose command was
+    deleted while state was lost would stay on disk forever. Off by default: a full
+    directory scan is unnecessary cost on every ordinary, state-backed run.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     by_slug = {c.slug: c for c in manifest.commands}
     skipped = frozenset(
@@ -238,6 +246,14 @@ def write_docs(
             path = out_dir / f"{slug}.mdx"
             if path.exists() and _has_marker(path, GENERATED_MARKER):
                 path.unlink()
+        if sweep:
+            for path in out_dir.glob("*.mdx"):
+                if (
+                    path.stem != "index"
+                    and path.stem not in by_slug
+                    and _has_marker(path, GENERATED_MARKER)
+                ):
+                    path.unlink()
     _write_page(out_dir / "index.mdx", render_index(manifest, base_slug=base_slug))
     _write_page(out_dir / "meta.json", render_meta(manifest), marker=_JSON_GENERATED_MARKER)
     return skipped

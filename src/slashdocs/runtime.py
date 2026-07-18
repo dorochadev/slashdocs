@@ -54,7 +54,12 @@ def _run_mdx(output: MdxOutput, manifest: Manifest) -> Diff:
         logger.info("slashdocs: docs up to date (%d commands)", len(manifest.commands))
         return diff
     skipped = write_docs(
-        output.path, manifest, diff, clean=output.clean, base_slug=output.base_slug
+        output.path,
+        manifest,
+        diff,
+        clean=output.clean,
+        base_slug=output.base_slug,
+        sweep=previous is None,
     )
     # A slug the overwrite guard skipped must not be recorded as settled — otherwise
     # it's never retried, even after the conflicting hand-written file goes away.
