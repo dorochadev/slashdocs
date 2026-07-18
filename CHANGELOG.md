@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
+## [0.2.1] - 2026-07-18
+
+### Changed
+- Corrected the package summary (0.2.0 shipped with the old MDX-only
+  one-liner; PyPI metadata can't be edited after publish, so this needed a
+  new version). No functional changes.
+
 ## [0.2.0] - 2026-07-18
 
 ### Added
