@@ -252,3 +252,65 @@ def test_write_docs_reports_slugs_skipped_by_overwrite_guard(tmp_path: Path) -> 
 def test_write_docs_reports_no_skips_on_a_clean_run(tmp_path: Path) -> None:
     skipped = write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
     assert skipped == frozenset()
+
+
+def test_code_span_survives_embedded_backticks() -> None:
+    doc = CommandDoc(
+        name="roll",
+        slug="roll",
+        kind="slash",
+        examples=("use `weird` syntax <ok> {oops}",),
+    )
+    out = render_command(doc)
+    usage_line = next(line for line in out.splitlines() if "weird" in line)
+    assert usage_line == "``use `weird` syntax <ok> {oops}``"
+
+
+def test_choices_survive_embedded_backticks() -> None:
+    doc = CommandDoc(
+        name="pick",
+        slug="pick",
+        kind="slash",
+        params=(ParamDoc(name="x", type="string", required=True, choices=("a`<b>{c}",)),),
+    )
+    out = render_command(doc)
+    row = next(line for line in out.splitlines() if "One of" in line)
+    assert row == "| x | string | yes | One of: ``a`<b>{c}`` |"
+
+
+def test_subcommand_heading_is_escaped() -> None:
+    doc = CommandDoc(
+        name="config",
+        slug="config",
+        kind="slash",
+        subcommands=(CommandDoc(name="config <evil>{x}", slug="", kind="slash"),),
+    )
+    out = render_command(doc)
+    heading = next(line for line in out.splitlines() if line.startswith("###"))
+    assert heading == "### /config \\<evil>\\{x}"
+
+
+def test_overwrite_guard_survives_a_non_utf8_colliding_file(tmp_path: Path) -> None:
+    (tmp_path / "ping.mdx").write_bytes(b"\xff\xfe not utf-8 at all")
+    manifest = Manifest(
+        commands=(
+            CommandDoc(name="ping", slug="ping", kind="slash"),
+            CommandDoc(name="pong", slug="pong", kind="slash"),
+        )
+    )
+    write_docs(tmp_path, manifest, Diff(added=("ping", "pong")))
+    assert (tmp_path / "pong.mdx").exists()  # unrelated write must not be blocked
+    assert (tmp_path / "meta.json").exists()
+
+
+def test_meta_json_is_never_overwritten_by_hand(tmp_path: Path) -> None:
+    (tmp_path / "meta.json").write_text('{"pages": ["custom-order"]}', encoding="utf-8")
+    write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
+    assert (tmp_path / "meta.json").read_text(encoding="utf-8") == '{"pages": ["custom-order"]}'
+
+
+def test_hybrid_commands_show_both_invocation_forms() -> None:
+    doc = CommandDoc(name="balance", slug="balance", kind="hybrid", description="d")
+    out = render_command(doc, prefix="?")
+    assert "`/balance`" in out
+    assert "`?balance`" in out
