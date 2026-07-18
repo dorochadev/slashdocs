@@ -56,6 +56,8 @@ def test_hybrid_documented_once_as_hybrid() -> None:
     balances = [c for c in manifest.commands if c.name == "balance"]
     assert len(balances) == 1
     assert balances[0].kind == "hybrid"
+    # description= on a hybrid lands in cmd.description, not help/brief
+    assert balances[0].description == "Get the money balance of someone."
 
 
 def test_walk_is_deterministic() -> None:

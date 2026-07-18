@@ -120,7 +120,8 @@ def _walk_prefix(
         name=cmd.qualified_name,
         slug="" if as_sub else _claim_slug(cmd.name, slugs, fallback=f"prefix-{cmd.name}"),
         kind="hybrid" if is_hybrid else "prefix",
-        description=cmd.help or cmd.brief or "",
+        # description= on hybrids lands in cmd.description, not help/brief
+        description=cmd.help or cmd.brief or cmd.description or "",
         category=_category(extras, cmd.cog_name),
         params=tuple(_param_from_prefix(name, p) for name, p in cmd.clean_params.items()),
         examples=extras.examples if extras else (),
