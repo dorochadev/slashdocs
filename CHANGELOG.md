@@ -46,6 +46,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `commands_page()`'s HTML template substitution is single-pass, so a `title`
   or `accent` that happens to contain a placeholder token (e.g. `__DATA__`)
   can no longer corrupt the rendered page.
+- MDX code spans (usage examples, choices, aliases) use a CommonMark-safe
+  fence, so a value containing a backtick can no longer break out and leak
+  raw `<`/`{` into the page; subcommand headings are escaped the same way as
+  every other heading.
+- `meta.json` is now marker-guarded like every other generated file, and a
+  non-UTF-8 file colliding with a command's page no longer aborts the whole
+  write (it's treated as a hand-written file and skipped).
+- Hybrid commands' generated docs (MDX and the commands.html card) now show
+  both invocation forms (`/name` and the prefix form), not just the slash one.
+- A page orphaned while `.slashdocs-manifest.json` was missing or unreadable
+  is now cleaned up: `write_docs` falls back to scanning the output directory
+  for stale marker-bearing pages when there's no diff baseline to trust.
 
 ### Removed
 - The `fmt=` parameter on `attach()` (replaced by `outputs=`).
