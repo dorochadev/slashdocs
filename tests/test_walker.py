@@ -161,3 +161,13 @@ async def test_introspected_permissions_and_cooldowns() -> None:
     warn = by_name["warn"]
     assert warn.permissions == ("Moderate Members",)
     assert (warn.cooldown_rate, warn.cooldown_per) == (0, 0.0)
+
+
+def test_hybrid_params_carry_slash_metadata() -> None:
+    manifest = walk_bot(make_bot())
+    balance = next(c for c in manifest.commands if c.name == "balance")
+    (user,) = balance.params
+    assert user.description == "Whose balance to view"
+    assert user.choices == ("me", "you")
+    assert user.required is False
+    assert user.default == "'me'"

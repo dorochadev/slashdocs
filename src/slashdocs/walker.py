@@ -165,6 +165,12 @@ def _walk_prefix(
         return None
     is_hybrid = isinstance(cmd, (commands.HybridCommand, commands.HybridGroup))
     rate, per = _cooldown(cmd)
+    # Hybrids carry richer param metadata (describe/choices/defaults) on their slash side.
+    app_params = getattr(getattr(cmd, "app_command", None), "parameters", None)
+    if is_hybrid and app_params is not None:
+        params = tuple(_param_from_app(p) for p in app_params)
+    else:
+        params = tuple(_param_from_prefix(name, p) for name, p in cmd.clean_params.items())
     subs: tuple[CommandDoc, ...] = ()
     if isinstance(cmd, commands.Group):
         subs = tuple(
@@ -182,7 +188,7 @@ def _walk_prefix(
         # description= on hybrids lands in cmd.description, not help/brief
         description=cmd.help or cmd.brief or cmd.description or "",
         category=_category(extras, cmd.cog_name),
-        params=tuple(_param_from_prefix(name, p) for name, p in cmd.clean_params.items()),
+        params=params,
         examples=extras.examples if extras else (),
         notes=extras.notes if extras else "",
         aliases=tuple(cmd.aliases),

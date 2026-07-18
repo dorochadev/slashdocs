@@ -40,10 +40,18 @@ def make_bot() -> commands.Bot:
     async def ping(ctx: commands.Context) -> None:  # type: ignore[type-arg]
         ...
 
-    # Hybrid command — must be documented exactly once, kind="hybrid"
+    # Hybrid command — must be documented exactly once, kind="hybrid",
+    # with slash-side param metadata (describe/choices/default) preserved
     @bot.hybrid_command(name="balance", description="Get the money balance of someone.")
+    @app_commands.describe(user="Whose balance to view")
+    @app_commands.choices(
+        user=[
+            app_commands.Choice(name="me", value="me"),
+            app_commands.Choice(name="you", value="you"),
+        ]
+    )
     @docs(permissions="Booster Only", tier="Premium")
-    async def balance(ctx: commands.Context, user: str) -> None:  # type: ignore[type-arg]
+    async def balance(ctx: commands.Context, user: str = "me") -> None:  # type: ignore[type-arg]
         ...
 
     return bot
