@@ -74,9 +74,7 @@ def _params_table(params: tuple[ParamDoc, ...], *, heading: bool = True) -> list
     ]
     for p in params:
         required = "yes" if p.required else "no"
-        lines.append(
-            f"| {_cell(p.name)} | {_cell(p.type)} | {required} | {_param_desc_cell(p)} |"
-        )
+        lines.append(f"| {_cell(p.name)} | {_cell(p.type)} | {required} | {_param_desc_cell(p)} |")
     lines.append("")
     return lines
 

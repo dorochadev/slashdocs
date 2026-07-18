@@ -22,6 +22,15 @@ logger = logging.getLogger("slashdocs")
 _ATTACHED_ATTR = "_slashdocs_attached"
 
 
+class OutputGenerationError(RuntimeError):
+    """Raised by generate() after attempting every output, if any failed."""
+
+    def __init__(self, failures: Sequence[tuple[Output, BaseException]]) -> None:
+        self.failures = tuple(failures)
+        outputs = ", ".join(str(output) for output, _exc in self.failures)
+        super().__init__(f"{len(self.failures)} output(s) failed: {outputs}")
+
+
 def _resolve_outputs(
     out: str | Path | None,
     outputs: Sequence[Output] | None,
@@ -75,12 +84,15 @@ def generate(
 ) -> Diff:
     """Walk the bot once and render every configured output.
 
-    Outputs are isolated: one failing is logged and the rest still run.
+    Every output is attempted even if another fails. If any failed, raises
+    OutputGenerationError once all have been attempted (see attach(), which
+    catches this so generation failures never take the bot down).
     Returns the Diff of the first MDX output (an empty Diff if there is none).
     """
     resolved = _resolve_outputs(out, outputs, base_slug=base_slug, clean=clean)
     manifest = walk_bot(bot, prefix=prefix)
     result: Diff | None = None
+    failures: list[tuple[Output, BaseException]] = []
     for output in resolved:
         try:
             if isinstance(output, MdxOutput):
@@ -91,8 +103,11 @@ def generate(
                 write_json(output.path, manifest)
             elif isinstance(output, PageOutput):
                 write_page(output.path, manifest, title=output.title, accent=output.accent)
-        except Exception:
+        except Exception as exc:
             logger.exception("slashdocs: output %s failed; continuing with the rest", output)
+            failures.append((output, exc))
+    if failures:
+        raise OutputGenerationError(failures)
     return result if result is not None else Diff()
 
 

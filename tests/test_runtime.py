@@ -122,17 +122,18 @@ async def test_on_ready_offloads_generation_to_a_thread(
     assert (tmp_path / "index.mdx").exists()
 
 
-def test_one_failing_output_does_not_stop_the_others(
+def test_one_failing_output_does_not_stop_the_others_but_is_surfaced(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     import slashdocs.runtime as runtime
     from slashdocs import commands_json, commands_page
+    from slashdocs.runtime import OutputGenerationError
 
     def boom(*_args, **_kwargs) -> None:  # type: ignore[no-untyped-def]
         raise RuntimeError("json exploded")
 
     monkeypatch.setattr(runtime, "write_json", boom)
-    with caplog.at_level(logging.ERROR, logger="slashdocs"):
+    with caplog.at_level(logging.ERROR, logger="slashdocs"), pytest.raises(OutputGenerationError):
         generate(
             make_bot(),
             outputs=[
@@ -140,7 +141,25 @@ def test_one_failing_output_does_not_stop_the_others(
                 commands_page(tmp_path / "commands.html"),
             ],
         )
+    # The other output still ran despite the failure.
     assert (tmp_path / "commands.html").exists()
+    assert any("failed" in r.message for r in caplog.records)
+
+
+async def test_attach_never_raises_even_when_every_output_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import slashdocs.runtime as runtime
+    from slashdocs import commands_json
+
+    def boom(*_args, **_kwargs) -> None:  # type: ignore[no-untyped-def]
+        raise RuntimeError("json exploded")
+
+    monkeypatch.setattr(runtime, "write_json", boom)
+    bot = make_bot()
+    attach(bot, outputs=[commands_json(tmp_path / "commands.json")])
+    with caplog.at_level(logging.ERROR, logger="slashdocs"):
+        await bot.extra_events["on_ready"][0]()  # must not raise
     assert any("failed" in r.message for r in caplog.records)
 
 
