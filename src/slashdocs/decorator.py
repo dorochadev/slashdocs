@@ -13,6 +13,14 @@ _FUNC_ATTR = "__slashdocs_extras__"
 T = TypeVar("T")
 
 
+def _as_tuple(value: str | list[str] | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return (value,)
+    return tuple(value)
+
+
 @dataclass(frozen=True)
 class DocsExtras:
     category: str | None = None
@@ -34,24 +42,12 @@ def docs(
 ) -> Callable[[T], T]:
     """Attach docs metadata to a discord.py command (any decorator order) or
     a bare coroutine function (below the command decorator)."""
-    if example is None:
-        examples: tuple[str, ...] = ()
-    elif isinstance(example, str):
-        examples = (example,)
-    else:
-        examples = tuple(example)
-    if permissions is None:
-        perms: tuple[str, ...] = ()
-    elif isinstance(permissions, str):
-        perms = (permissions,)
-    else:
-        perms = tuple(permissions)
     extras = DocsExtras(
         category=category,
-        examples=examples,
+        examples=_as_tuple(example),
         hidden=hidden,
         notes=notes,
-        permissions=perms,
+        permissions=_as_tuple(permissions),
         tier=tier,
     )
 

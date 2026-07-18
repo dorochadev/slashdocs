@@ -73,3 +73,11 @@ def test_permissions_and_tier_extras() -> None:
     assert extras_many.permissions == ("Manage Guild", "Roles")
     assert extras_many.tier == ""
     assert DocsExtras().permissions == ()
+
+
+def test_as_tuple_normalizes_none_str_and_list() -> None:
+    from slashdocs.decorator import _as_tuple
+
+    assert _as_tuple(None) == ()
+    assert _as_tuple("solo") == ("solo",)
+    assert _as_tuple(["a", "b"]) == ("a", "b")
