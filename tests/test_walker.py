@@ -171,3 +171,25 @@ def test_hybrid_params_carry_slash_metadata() -> None:
     assert user.choices == ("me", "you")
     assert user.required is False
     assert user.default == "'me'"
+
+
+async def test_bot_required_permissions_are_not_shown_as_user_requirements() -> None:
+    """@bot_has_permissions documents what the BOT needs, not the invoking user."""
+    import discord
+    from discord.ext import commands
+
+    bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
+
+    @bot.command(name="embed_thing")
+    @commands.bot_has_permissions(embed_links=True)
+    async def embed_thing(ctx) -> None: ...  # type: ignore[no-untyped-def]
+
+    @bot.command(name="mixed")
+    @commands.has_permissions(kick_members=True)
+    @commands.bot_has_permissions(embed_links=True)
+    async def mixed(ctx) -> None: ...  # type: ignore[no-untyped-def]
+
+    manifest = walk_bot(bot)
+    by_name = {c.name: c for c in manifest.commands}
+    assert by_name["embed_thing"].permissions == ()
+    assert by_name["mixed"].permissions == ("Kick Members",)

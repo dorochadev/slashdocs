@@ -76,11 +76,23 @@ def _slash_permissions(cmd: object) -> tuple[str, ...]:
     return tuple(_perm_name(name) for name, value in perms if value)
 
 
+_USER_PERMISSION_CHECKS = ("has_permissions.", "has_guild_permissions.")
+
+
 def _check_permissions(cmd: object) -> tuple[str, ...]:
-    """Best-effort: read the perms dict out of @has_permissions-style check closures."""
+    """Best-effort: read the perms dict out of @has_permissions-style check closures.
+
+    Only checks that require something of the *invoking user* are documented —
+    @bot_has_permissions/@bot_has_guild_permissions describe what the bot needs and
+    must never be shown as a requirement on the person running the command. Their
+    qualnames ("bot_has_permissions.<locals>.predicate") don't match the trailing
+    "." on _USER_PERMISSION_CHECKS, so they're excluded without a separate check.
+    """
     names: list[str] = []
     for check in getattr(cmd, "checks", ()):
         try:
+            if not check.__qualname__.startswith(_USER_PERMISSION_CHECKS):
+                continue
             freevars = check.__code__.co_freevars
             closure = check.__closure__ or ()
             for var, cell in zip(freevars, closure, strict=False):
