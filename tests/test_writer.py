@@ -153,3 +153,66 @@ def test_write_docs_clean_false_keeps_removed_files(tmp_path: Path) -> None:
     write_docs(tmp_path, manifest, Diff(added=("coinflip",)))
     write_docs(tmp_path, Manifest(), Diff(removed=("coinflip",)), clean=False)
     assert (tmp_path / "coinflip.mdx").exists()
+
+
+def test_mdx_significant_characters_are_escaped_in_body() -> None:
+    doc = CommandDoc(
+        name="roll",
+        slug="roll",
+        kind="prefix",
+        description="Rolls {dice}, e.g. <2d6>.",
+        notes="Mention <user> to target {them}.",
+    )
+    out = render_command(doc)
+    assert "Rolls \\{dice}, e.g. \\<2d6>." in out
+    assert "Mention \\<user> to target \\{them}." in out
+
+
+def test_table_cells_are_single_line_and_pipe_safe() -> None:
+    doc = CommandDoc(
+        name="kick",
+        slug="kick",
+        kind="prefix",
+        description="Kick a member | fast.\n\nLong second paragraph.",
+        params=(ParamDoc(name="who", type="user", required=True, description="a|b"),),
+    )
+    out = render_index(Manifest(commands=(doc,)))
+    row = next(line for line in out.splitlines() if "!kick" in line)
+    assert row == "| [!kick](/commands/kick) | Kick a member \\| fast. |"
+    page = render_command(doc)
+    assert "| who | user | yes | a\\|b |" in page
+
+
+def test_overwrite_guard_protects_handwritten_pages(tmp_path: Path) -> None:
+    (tmp_path / "coinflip.mdx").write_text("# mine\n", encoding="utf-8")
+    (tmp_path / "index.mdx").write_text("# my index\n", encoding="utf-8")
+    write_docs(tmp_path, Manifest(commands=(COINFLIP,)), Diff(added=("coinflip",)))
+    assert (tmp_path / "coinflip.mdx").read_text(encoding="utf-8") == "# mine\n"
+    assert (tmp_path / "index.mdx").read_text(encoding="utf-8") == "# my index\n"
+    assert (tmp_path / "meta.json").exists()
+
+
+def test_prefix_comes_from_manifest(tmp_path: Path) -> None:
+    doc = CommandDoc(name="ping", slug="ping", kind="prefix", description="d")
+    manifest = Manifest(commands=(doc,), prefix="?")
+    write_docs(tmp_path, manifest, Diff(added=("ping",)))
+    assert 'title: "?ping"' in (tmp_path / "ping.mdx").read_text(encoding="utf-8")
+    assert "[?ping]" in (tmp_path / "index.mdx").read_text(encoding="utf-8")
+
+
+def test_permission_cooldown_and_tier_badges() -> None:
+    doc = CommandDoc(
+        name="ban",
+        slug="ban",
+        kind="prefix",
+        description="Ban someone.",
+        permissions=("Ban Members", "Booster Only"),
+        cooldown_rate=1,
+        cooldown_per=5.0,
+        tier="Premium",
+    )
+    out = render_command(doc)
+    assert 'permissions: ["Ban Members", "Booster Only"]' in out
+    assert 'cooldown: "1/5s"' in out
+    assert 'tier: "Premium"' in out
+    assert "**Requires:** Ban Members, Booster Only · **Cooldown:** 1/5s · 👑 Premium" in out

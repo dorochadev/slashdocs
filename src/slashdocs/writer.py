@@ -4,35 +4,65 @@ identically in Fumadocs, Nextra, Docusaurus, and Astro Starlight."""
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from .differ import Diff
 from .model import CommandDoc, Manifest, ParamDoc
 
 GENERATED_MARKER = "generated_by: slashdocs"
+_ESCAPED_PIPE = "\\|"
+
+logger = logging.getLogger("slashdocs")
 
 
 def _yaml_str(value: str) -> str:
     return json.dumps(value)  # JSON string escaping is valid YAML
 
 
-def _display_name(doc: CommandDoc) -> str:
-    prefix = "!" if doc.kind == "prefix" else "/"
-    return f"{prefix}{doc.name}"
+def _escape_text(text: str) -> str:
+    """Escape characters MDX would parse as JSX ('<' opens an element, '{' an expression)."""
+    return text.replace("\\", "\\\\").replace("<", "\\<").replace("{", "\\{")
 
 
-def _usage(doc: CommandDoc) -> str:
-    parts = [_display_name(doc)]
+def _cell(text: str) -> str:
+    """Table cells must be one line and pipe-free: first non-empty line, escaped."""
+    first = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    return _escape_text(first).replace("|", _ESCAPED_PIPE)
+
+
+def _display_name(doc: CommandDoc, prefix: str) -> str:
+    return f"{prefix if doc.kind == 'prefix' else '/'}{doc.name}"
+
+
+def _usage(doc: CommandDoc, prefix: str) -> str:
+    parts = [_display_name(doc, prefix)]
     parts += [f"<{p.name}>" if p.required else f"[{p.name}]" for p in doc.params]
     return " ".join(parts)
+
+
+def _cooldown_text(doc: CommandDoc) -> str:
+    return f"{doc.cooldown_rate}/{doc.cooldown_per:g}s"
+
+
+def _badges(doc: CommandDoc) -> str:
+    parts = []
+    if doc.permissions:
+        parts.append("**Requires:** " + ", ".join(doc.permissions))
+    if doc.cooldown_rate:
+        parts.append(f"**Cooldown:** {_cooldown_text(doc)}")
+    if doc.tier:
+        parts.append(f"👑 {doc.tier}")
+    return " · ".join(parts)
 
 
 def _param_desc_cell(p: ParamDoc) -> str:
     parts = []
     if p.description:
-        parts.append(p.description)
+        parts.append(_cell(p.description))
     if p.choices:
-        parts.append("One of: " + ", ".join(f"`{c}`" for c in p.choices))
+        choices = ", ".join(f"`{c.replace('|', _ESCAPED_PIPE)}`" for c in p.choices)
+        parts.append("One of: " + choices)
     return " — ".join(parts)
 
 
@@ -49,14 +79,20 @@ def _params_table(params: tuple[ParamDoc, ...], *, heading: bool = True) -> list
     return lines
 
 
-def _frontmatter(doc: CommandDoc) -> list[str]:
+def _frontmatter(doc: CommandDoc, prefix: str) -> list[str]:
     lines = [
         "---",
-        f"title: {_yaml_str(_display_name(doc))}",
+        f"title: {_yaml_str(_display_name(doc, prefix))}",
         f"description: {_yaml_str(doc.description)}",
         f"category: {_yaml_str(doc.category)}",
-        GENERATED_MARKER,
     ]
+    if doc.permissions:
+        lines.append("permissions: [" + ", ".join(_yaml_str(p) for p in doc.permissions) + "]")
+    if doc.cooldown_rate:
+        lines.append(f'cooldown: "{_cooldown_text(doc)}"')
+    if doc.tier:
+        lines.append(f"tier: {_yaml_str(doc.tier)}")
+    lines.append(GENERATED_MARKER)
     if doc.params:
         lines.append("params:")
         for p in doc.params:
@@ -72,12 +108,15 @@ def _frontmatter(doc: CommandDoc) -> list[str]:
     return lines
 
 
-def _body(doc: CommandDoc) -> list[str]:
+def _body(doc: CommandDoc, prefix: str) -> list[str]:
     lines: list[str] = [""]
     if doc.description:
-        lines += [doc.description, ""]
+        lines += [_escape_text(doc.description), ""]
+    badges = _badges(doc)
+    if badges:
+        lines += [badges, ""]
     lines += ["## Usage", ""]
-    for usage in doc.examples or (_usage(doc),):
+    for usage in doc.examples or (_usage(doc, prefix),):
         lines += [f"`{usage}`", ""]
     if doc.params:
         lines += _params_table(doc.params)
@@ -87,19 +126,22 @@ def _body(doc: CommandDoc) -> list[str]:
     if doc.subcommands:
         lines += ["## Subcommands", ""]
         for sub in doc.subcommands:
-            lines += [f"### {_display_name(sub)}", ""]
+            lines += [f"### {_display_name(sub, prefix)}", ""]
             if sub.description:
-                lines += [sub.description, ""]
-            lines += [f"`{_usage(sub)}`", ""]
+                lines += [_escape_text(sub.description), ""]
+            sub_badges = _badges(sub)
+            if sub_badges:
+                lines += [sub_badges, ""]
+            lines += [f"`{_usage(sub, prefix)}`", ""]
             if sub.params:
                 lines += _params_table(sub.params, heading=False)
     if doc.notes:
-        lines += [doc.notes, ""]
+        lines += [_escape_text(doc.notes), ""]
     return lines
 
 
-def render_command(doc: CommandDoc, *, base_slug: str = "/commands") -> str:
-    text = "\n".join(_frontmatter(doc) + _body(doc))
+def render_command(doc: CommandDoc, *, prefix: str = "!") -> str:
+    text = "\n".join(_frontmatter(doc, prefix) + _body(doc, prefix))
     return text.rstrip("\n") + "\n"
 
 
@@ -118,8 +160,8 @@ def render_index(manifest: Manifest, *, base_slug: str = "/commands") -> str:
     for category in sorted(by_category):
         lines += [f"## {category}", "", "| Command | Description |", "| ------- | ----------- |"]
         for cmd in sorted(by_category[category], key=lambda c: c.name):
-            link = f"[{_display_name(cmd)}]({base_slug}/{cmd.slug})"
-            lines.append(f"| {link} | {cmd.description} |")
+            link = f"[{_display_name(cmd, manifest.prefix)}]({base_slug}/{cmd.slug})"
+            lines.append(f"| {link} | {_cell(cmd.description)} |")
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -127,6 +169,14 @@ def render_index(manifest: Manifest, *, base_slug: str = "/commands") -> str:
 def render_meta(manifest: Manifest) -> str:
     ordered = sorted(manifest.commands, key=lambda c: (c.category, c.name))
     return json.dumps({"pages": ["index", *(c.slug for c in ordered)]}, indent=2) + "\n"
+
+
+def _write_page(path: Path, text: str) -> None:
+    """Refuse to overwrite a file we didn't generate (missing marker)."""
+    if path.exists() and GENERATED_MARKER not in path.read_text(encoding="utf-8"):
+        logger.warning("slashdocs: %s exists but was not generated by slashdocs; skipping", path)
+        return
+    path.write_text(text, encoding="utf-8")
 
 
 def write_docs(
@@ -140,14 +190,11 @@ def write_docs(
     out_dir.mkdir(parents=True, exist_ok=True)
     by_slug = {c.slug: c for c in manifest.commands}
     for slug in (*diff.added, *diff.changed):
-        path = out_dir / f"{slug}.mdx"
-        path.write_text(render_command(by_slug[slug], base_slug=base_slug), encoding="utf-8")
+        _write_page(out_dir / f"{slug}.mdx", render_command(by_slug[slug], prefix=manifest.prefix))
     if clean:
         for slug in diff.removed:
             path = out_dir / f"{slug}.mdx"
             if path.exists() and GENERATED_MARKER in path.read_text(encoding="utf-8"):
                 path.unlink()
-    (out_dir / "index.mdx").write_text(
-        render_index(manifest, base_slug=base_slug), encoding="utf-8"
-    )
+    _write_page(out_dir / "index.mdx", render_index(manifest, base_slug=base_slug))
     (out_dir / "meta.json").write_text(render_meta(manifest), encoding="utf-8")
