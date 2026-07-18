@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from discord import app_commands
@@ -178,11 +179,22 @@ def _clean_desc(desc: str) -> str:
     return "" if desc == "…" else desc  # discord.py's placeholder for "no description"
 
 
+_RESERVED_SLUGS = frozenset({"index", "meta"})  # filenames the writer owns
+
+
+def _slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or "cmd"
+
+
 def _claim_slug(name: str, slugs: set[str], *, fallback: str | None = None) -> str:
-    slug = name if name not in slugs else (fallback or name)
+    base = _slugify(name)
+    if base in _RESERVED_SLUGS or base in slugs:
+        base = _slugify(fallback) if fallback else f"{base}-cmd"
+    slug = base
     counter = 2
-    while slug in slugs:
-        slug = f"{name}-{counter}"
+    while slug in slugs or slug in _RESERVED_SLUGS:
+        slug = f"{base}-{counter}"
         counter += 1
     slugs.add(slug)
     return slug

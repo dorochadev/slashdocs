@@ -103,5 +103,29 @@ def test_claim_slug_counter_suffix_when_fallback_also_taken() -> None:
     from slashdocs.walker import _claim_slug
 
     slugs = {"stats", "prefix-stats"}
-    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "stats-2"
-    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "stats-3"
+    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "prefix-stats-2"
+    assert _claim_slug("stats", slugs, fallback="prefix-stats") == "prefix-stats-3"
+
+
+def test_slugs_are_sanitized_and_file_safe() -> None:
+    from slashdocs.walker import _claim_slug
+
+    slugs: set[str] = set()
+    assert _claim_slug("../evil", slugs) == "evil"
+    assert _claim_slug("foo/bar", slugs) == "foo-bar"
+    assert _claim_slug("Weird  Name!", slugs) == "weird-name"
+
+
+def test_reserved_slugs_are_never_claimed() -> None:
+    from slashdocs.walker import _claim_slug
+
+    slugs: set[str] = set()
+    assert _claim_slug("index", slugs) == "index-cmd"
+    assert _claim_slug("meta", slugs, fallback="prefix-meta") == "prefix-meta"
+
+
+def test_collision_counter_appends_to_chosen_base() -> None:
+    from slashdocs.walker import _claim_slug
+
+    slugs = {"ping", "prefix-ping"}
+    assert _claim_slug("ping", slugs, fallback="prefix-ping") == "prefix-ping-2"
