@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "slashdocs"
 version = "0.2.0"
-description = "Auto-generated MDX command docs for discord.py bots — attach one line and your commands page writes itself on startup."
+description = "Auto-generated command docs for discord.py bots — MDX pages, a JSON feed, and a self-contained searchable commands page, all from one attach() call."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
