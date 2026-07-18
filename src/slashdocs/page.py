@@ -12,6 +12,7 @@ from __future__ import annotations
 import html as html_mod
 import json
 import logging
+import re
 from pathlib import Path
 
 from .model import Manifest
@@ -181,13 +182,20 @@ h1 { font-size: 1.5rem; margin-bottom: 1rem; }
 """
 
 
+_PLACEHOLDER_RE = re.compile("__TITLE__|__ACCENT__|__DATA__")
+
+
 def render_page(manifest: Manifest, *, title: str = "Commands", accent: str = "#5865F2") -> str:
     data = json.dumps(manifest.to_dict(), sort_keys=True).replace("</", "<\\/")
-    return (
-        _TEMPLATE.replace("__TITLE__", html_mod.escape(title))
-        .replace("__ACCENT__", html_mod.escape(accent))
-        .replace("__DATA__", data)
-    )
+    values = {
+        "__TITLE__": html_mod.escape(title),
+        "__ACCENT__": html_mod.escape(accent),
+        "__DATA__": data,
+    }
+    # Single-pass substitution: sequential str.replace() calls would let a title or
+    # accent that literally contains a later token (e.g. "__DATA__") get substituted
+    # again by a later .replace(), corrupting the output.
+    return _PLACEHOLDER_RE.sub(lambda m: values[m.group(0)], _TEMPLATE)
 
 
 def write_page(

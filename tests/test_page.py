@@ -72,3 +72,9 @@ def test_write_page_only_writes_on_change(tmp_path: Path) -> None:
     assert write_page(path, _manifest()) is False
     path.unlink()
     assert write_page(path, _manifest()) is True
+
+
+def test_title_or_accent_containing_a_placeholder_token_does_not_corrupt_output() -> None:
+    html = render_page(Manifest(), title="My __ACCENT__ Bot", accent="#123456")
+    assert "<h1>My __ACCENT__ Bot</h1>" in html
+    assert "--accent: #123456" in html
