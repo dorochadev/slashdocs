@@ -193,3 +193,12 @@ async def test_bot_required_permissions_are_not_shown_as_user_requirements() -> 
     by_name = {c.name: c for c in manifest.commands}
     assert by_name["embed_thing"].permissions == ()
     assert by_name["mixed"].permissions == ("Kick Members",)
+
+
+def test_extras_or_default_normalizes_none() -> None:
+    from slashdocs.decorator import DocsExtras
+    from slashdocs.walker import _extras_or_default
+
+    assert _extras_or_default(None) == DocsExtras()
+    given = DocsExtras(category="Economy")
+    assert _extras_or_default(given) is given

@@ -64,9 +64,15 @@ def _perm_name(flag: str) -> str:
     return flag.replace("_", " ").title()
 
 
-def _merge_permissions(introspected: tuple[str, ...], extras: DocsExtras | None) -> tuple[str, ...]:
-    extra = extras.permissions if extras else ()
-    return tuple(dict.fromkeys((*introspected, *extra)))
+def _extras_or_default(extras: DocsExtras | None) -> DocsExtras:
+    """Normalize once so call sites read extras.field directly, with no per-field
+    ternary — the ternary-per-field pattern is what let permissions/tier get added
+    to two walk functions but silently forgotten in a third, previously."""
+    return extras if extras is not None else DocsExtras()
+
+
+def _merge_permissions(introspected: tuple[str, ...], extras: DocsExtras) -> tuple[str, ...]:
+    return tuple(dict.fromkeys((*introspected, *extras.permissions)))
 
 
 def _slash_permissions(cmd: object) -> tuple[str, ...]:
@@ -119,8 +125,8 @@ def _walk_slash(
     *,
     as_sub: bool = False,
 ) -> CommandDoc | None:
-    extras = get_extras(cmd)
-    if extras is not None and extras.hidden:
+    extras = _extras_or_default(get_extras(cmd))
+    if extras.hidden:
         return None
     return CommandDoc(
         name=cmd.qualified_name,
@@ -129,18 +135,18 @@ def _walk_slash(
         description=_clean_desc(cmd.description),
         category=_category(extras, _cog_name(cmd)),
         params=tuple(_param_from_app(p) for p in cmd.parameters),
-        examples=extras.examples if extras else (),
-        notes=extras.notes if extras else "",
+        examples=extras.examples,
+        notes=extras.notes,
         permissions=_merge_permissions(_slash_permissions(cmd), extras),
-        tier=extras.tier if extras else "",
+        tier=extras.tier,
     )
 
 
 def _walk_group(
     group: app_commands.Group, slugs: set[str], *, as_sub: bool = False
 ) -> CommandDoc | None:
-    extras = get_extras(group)
-    if extras is not None and extras.hidden:
+    extras = _extras_or_default(get_extras(group))
+    if extras.hidden:
         return None
     subs: list[CommandDoc] = []
     for sub in sorted(group.commands, key=lambda c: c.name):
@@ -156,10 +162,10 @@ def _walk_group(
         kind="slash",
         description=_clean_desc(group.description),
         category=_category(extras, _cog_name(group)),
-        examples=extras.examples if extras else (),
-        notes=extras.notes if extras else "",
+        examples=extras.examples,
+        notes=extras.notes,
         permissions=_merge_permissions(_slash_permissions(group), extras),
-        tier=extras.tier if extras else "",
+        tier=extras.tier,
         subcommands=tuple(subs),
     )
 
@@ -172,8 +178,8 @@ def _walk_prefix(
 ) -> CommandDoc | None:
     if cmd.hidden:
         return None
-    extras = get_extras(cmd)
-    if extras is not None and extras.hidden:
+    extras = _extras_or_default(get_extras(cmd))
+    if extras.hidden:
         return None
     is_hybrid = isinstance(cmd, (commands.HybridCommand, commands.HybridGroup))
     rate, per = _cooldown(cmd)
@@ -201,13 +207,13 @@ def _walk_prefix(
         description=cmd.help or cmd.brief or cmd.description or "",
         category=_category(extras, cmd.cog_name),
         params=params,
-        examples=extras.examples if extras else (),
-        notes=extras.notes if extras else "",
+        examples=extras.examples,
+        notes=extras.notes,
         aliases=tuple(cmd.aliases),
         permissions=_merge_permissions(_check_permissions(cmd), extras),
         cooldown_rate=rate,
         cooldown_per=per,
-        tier=extras.tier if extras else "",
+        tier=extras.tier,
         subcommands=subs,
     )
 
@@ -243,10 +249,8 @@ def _cog_name(cmd: object) -> str | None:
     return None
 
 
-def _category(extras: DocsExtras | None, cog_name: str | None) -> str:
-    if extras is not None and extras.category:
-        return extras.category
-    return cog_name or "General"
+def _category(extras: DocsExtras, cog_name: str | None) -> str:
+    return extras.category or cog_name or "General"
 
 
 def _is_framework_internal(cmd: commands.Command) -> bool:  # type: ignore[type-arg]
