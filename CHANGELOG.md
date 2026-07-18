@@ -22,18 +22,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Fixed
 - Hybrid commands keep their slash-side parameter metadata
   (`@app_commands.describe`, choices, defaults).
-- MDX-significant characters (`<`, `{`) in descriptions/notes are escaped, and
-  table cells are single-line and pipe-safe, so generated pages can no longer
-  break the docs-site build.
+- MDX-significant characters (`<`, `{`) are escaped everywhere user-controlled
+  text reaches a page — descriptions, notes, permission/tier badges, and all
+  four parameter-table columns — and table cells are single-line and
+  pipe-safe, so generated pages can no longer break the docs-site build.
 - Slugs are sanitized to file-safe names (`index`/`meta` reserved), closing a
   path-traversal hole for hostile command names.
 - Hand-written files are never overwritten: the `generated_by: slashdocs`
-  marker now guards writes as well as deletion.
+  marker now guards writes as well as deletion, and a page the guard skips is
+  retried on every future run (rather than being marked settled) until the
+  conflicting file is resolved.
 - JSON/HTML outputs are stateless (byte-compare), so a deleted output file is
   regenerated on the next startup.
+- Upgrading from a pre-0.2.0 install no longer orphans pages whose slug
+  changed under the new sanitization — old state stays diffable so renamed
+  slugs are still detected as removed and cleaned up.
+- `generate()` now raises `OutputGenerationError` if any configured output
+  failed, instead of returning a Diff indistinguishable from "up to date";
+  `attach()`'s on_ready hook still never raises into the bot.
 
 ### Removed
 - The `fmt=` parameter on `attach()` (replaced by `outputs=`).
+
+### Chore
+- PyPI trusted-publishing workflow (`publish.yml`, OIDC, triggered by a
+  GitHub release) and a README banner.
 
 ## [0.1.0] - 2026-07-18
 
