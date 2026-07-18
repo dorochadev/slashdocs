@@ -19,6 +19,8 @@ class DocsExtras:
     examples: tuple[str, ...] = ()
     hidden: bool = False
     notes: str = ""
+    permissions: tuple[str, ...] = ()
+    tier: str = ""
 
 
 def docs(
@@ -27,6 +29,8 @@ def docs(
     example: str | list[str] | None = None,
     hidden: bool = False,
     notes: str = "",
+    permissions: str | list[str] | None = None,
+    tier: str = "",
 ) -> Callable[[T], T]:
     """Attach docs metadata to a discord.py command (any decorator order) or
     a bare coroutine function (below the command decorator)."""
@@ -36,7 +40,20 @@ def docs(
         examples = (example,)
     else:
         examples = tuple(example)
-    extras = DocsExtras(category=category, examples=examples, hidden=hidden, notes=notes)
+    if permissions is None:
+        perms: tuple[str, ...] = ()
+    elif isinstance(permissions, str):
+        perms = (permissions,)
+    else:
+        perms = tuple(permissions)
+    extras = DocsExtras(
+        category=category,
+        examples=examples,
+        hidden=hidden,
+        notes=notes,
+        permissions=perms,
+        tier=tier,
+    )
 
     def wrap(target: T) -> T:
         cmd_extras = getattr(target, "extras", None)

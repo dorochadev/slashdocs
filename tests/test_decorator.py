@@ -52,3 +52,24 @@ def test_get_extras_returns_none_when_absent() -> None:
 
     assert get_extras(undecorated) is None
     assert get_extras(object()) is None
+
+
+def test_permissions_and_tier_extras() -> None:
+    from slashdocs.decorator import DocsExtras, docs, get_extras
+
+    @docs(permissions="Booster Only", tier="Premium")
+    async def one() -> None: ...
+
+    @docs(permissions=["Manage Guild", "Roles"])
+    async def many() -> None: ...
+
+    extras_one = get_extras(one)
+    assert extras_one is not None
+    assert extras_one.permissions == ("Booster Only",)
+    assert extras_one.tier == "Premium"
+
+    extras_many = get_extras(many)
+    assert extras_many is not None
+    assert extras_many.permissions == ("Manage Guild", "Roles")
+    assert extras_many.tier == ""
+    assert DocsExtras().permissions == ()
