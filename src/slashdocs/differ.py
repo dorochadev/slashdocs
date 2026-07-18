@@ -49,9 +49,13 @@ def load_state(out_dir: Path) -> Manifest | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         manifest = Manifest.from_dict(data["manifest"])
+        # Old-schema fields are additive-only (Manifest/CommandDoc.from_dict default
+        # anything missing), so this still parses and stays diffable — that's what lets
+        # compute_diff notice slugs a later slugify() change renamed, and clean them up.
         if manifest.schema_version != Manifest().schema_version:
-            logger.warning("slashdocs: state %s has an old schema; regenerating all docs", path)
-            return None
+            logger.info(
+                "slashdocs: state %s is schema v%d; migrating", path, manifest.schema_version
+            )
         return manifest
     except FileNotFoundError:
         return None

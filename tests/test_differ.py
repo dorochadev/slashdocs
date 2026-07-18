@@ -51,9 +51,20 @@ def test_prefix_change_marks_all_common_slugs_changed() -> None:
     assert not diff.added and not diff.removed
 
 
-def test_load_state_from_old_schema_returns_none(tmp_path: Path) -> None:
+def test_load_state_from_old_schema_still_parses_for_diffing(tmp_path: Path) -> None:
+    """Old fields are additive-only (defaults via .get), so an old-schema state must
+    still be diffable — discarding it would make compute_diff blind to removed slugs
+    (see test_upgrade_cleans_up_a_slug_that_sanitization_renamed in test_e2e.py)."""
     import json
 
-    v1 = {"manifest": {"schema_version": 1, "commands": []}}
+    v1 = {
+        "manifest": {
+            "schema_version": 1,
+            "commands": [{"name": "a", "slug": "a", "kind": "slash"}],
+        }
+    }
     (tmp_path / STATE_FILENAME).write_text(json.dumps(v1), encoding="utf-8")
-    assert load_state(tmp_path) is None
+    loaded = load_state(tmp_path)
+    assert loaded is not None
+    assert loaded.schema_version == 1
+    assert [c.slug for c in loaded.commands] == ["a"]

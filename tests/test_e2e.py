@@ -5,7 +5,9 @@ from pathlib import Path
 
 from conftest import make_bot
 from slashdocs import commands_json, commands_page, mdx
+from slashdocs.differ import STATE_FILENAME
 from slashdocs.runtime import generate
+from slashdocs.writer import GENERATED_MARKER
 
 
 def _mtimes(root: Path) -> dict[str, int]:
@@ -40,3 +42,25 @@ def test_all_outputs_end_to_end_and_idempotent(tmp_path: Path) -> None:
     snapshot = _mtimes(tmp_path)
     generate(make_bot(), outputs=outputs)
     assert _mtimes(tmp_path) == snapshot
+
+
+def test_upgrade_cleans_up_a_slug_that_sanitization_renamed(tmp_path: Path) -> None:
+    """A pre-0.2.0 install wrote raw-name slugs (no sanitization). After upgrading,
+    the sanitized slug for the same command differs, and the stale page under the
+    old slug must be swept away rather than orphaned forever."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    old_page = docs / "coin_flip.mdx"  # pretend v1's raw-name slug was "coin_flip"
+    old_page.write_text(f"---\n{GENERATED_MARKER}\n---\nstale\n", encoding="utf-8")
+    v1_state = {
+        "manifest": {
+            "schema_version": 1,
+            "commands": [{"name": "coinflip", "slug": "coin_flip", "kind": "slash"}],
+        }
+    }
+    (docs / STATE_FILENAME).write_text(json.dumps(v1_state), encoding="utf-8")
+
+    generate(make_bot(), outputs=[mdx(docs)])
+
+    assert not old_page.exists()  # orphaned old-slug page is cleaned up
+    assert (docs / "coinflip.mdx").exists()  # sanitized slug: no rename needed here
