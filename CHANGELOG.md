@@ -40,6 +40,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `generate()` now raises `OutputGenerationError` if any configured output
   failed, instead of returning a Diff indistinguishable from "up to date";
   `attach()`'s on_ready hook still never raises into the bot.
+- `@commands.bot_has_permissions`/`bot_has_guild_permissions` are no longer
+  introspected as a requirement on the invoking user — they describe what the
+  bot itself needs.
+- `commands_page()`'s HTML template substitution is single-pass, so a `title`
+  or `accent` that happens to contain a placeholder token (e.g. `__DATA__`)
+  can no longer corrupt the rendered page.
 
 ### Removed
 - The `fmt=` parameter on `attach()` (replaced by `outputs=`).
