@@ -3,6 +3,13 @@
        alt="slashdocs — turn your Discord bot commands into beautiful documentation" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://github.com/dorochadev/slashdocs/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/dorochadev/slashdocs/ci.yml?branch=main&label=CI"></a>
+  <a href="https://pypi.org/project/slashdocs/"><img alt="PyPI" src="https://img.shields.io/pypi/v/slashdocs"></a>
+  <a href="https://pypi.org/project/slashdocs/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/slashdocs"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue"></a>
+</p>
+
 Auto-generated command docs for discord.py bots — attach one line and your
 commands page writes itself on startup.
 
@@ -32,7 +39,7 @@ from slashdocs import docs
 
 @bot.tree.command(description="Bet money on a coin flip.")
 @docs(category="Economy", example="/coinflip 500 heads")
-async def coinflip(interaction, amount: int, side: str): ...
+async def coinflip(interaction: discord.Interaction, amount: int, side: str): ...
 
 slashdocs.attach(bot, out="docs/commands")
 
@@ -145,8 +152,8 @@ statically and cache.
 data embedded and zero external requests — drop it on any static host. It
 renders a category sidebar with counts, live search over names/aliases/
 descriptions, and cards with parameter chips, permission and tier badges,
-cooldowns, and slash/prefix indicators. Light and dark themes follow the
-visitor's system preference.
+cooldowns, and slash/prefix indicators — hybrid commands show both invocation
+forms. Light and dark themes follow the visitor's system preference.
 
 ## API
 
@@ -161,8 +168,12 @@ slashdocs.__version__
 
 `attach(bot, out="docs/commands")` is shorthand for a single `mdx()` output.
 
-Docs generation can never crash your bot: all failures are caught and logged
-to the `slashdocs` logger.
+`attach()`'s on_ready hook can never crash your bot: every output is attempted
+even if another fails, and any failure is caught, logged to the `slashdocs`
+logger, and never re-raised into the bot. Calling `generate()` directly (e.g.
+from a script) instead raises `OutputGenerationError` if any output failed,
+after every output has been attempted — so a CI job or build script can tell
+generation actually failed rather than reading a false "up to date".
 
 ## Requirements
 

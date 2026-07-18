@@ -9,55 +9,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Multi-output `attach(bot, outputs=[...])`: `mdx()`, `commands_json()` (stable
   schema-v2 JSON feed for custom /commands frontends), and `commands_page()`
   (self-contained searchable commands.html — category sidebar with counts,
-  live search, parameter chips, permission/tier badges).
+  live search, parameter chips, permission/tier badges, hybrid commands
+  showing both invocation forms).
 - Manifest schema v2: bot prefix, permissions, cooldowns, and tier per command.
   Slash `default_permissions`, prefix/hybrid `has_permissions` /
   `has_guild_permissions` and `cooldown` decorators are introspected
-  automatically; `@docs(permissions=..., tier=...)` covers custom checks.
-- Prefix commands render with the bot's real `command_prefix`
-  (`attach(..., prefix=...)` overrides callable prefixes).
-- Docs generation now runs off the event loop (`asyncio.to_thread`), and each
-  configured output is failure-isolated.
-
-### Fixed
+  automatically (checks describing what the *bot* needs, like
+  `bot_has_permissions`, are correctly excluded); `@docs(permissions=...,
+  tier=...)` covers custom checks. Prefix commands render with the bot's real
+  `command_prefix` (`attach(..., prefix=...)` overrides callable prefixes).
 - Hybrid commands keep their slash-side parameter metadata
   (`@app_commands.describe`, choices, defaults).
-- MDX-significant characters (`<`, `{`) are escaped everywhere user-controlled
-  text reaches a page — descriptions, notes, permission/tier badges, and all
-  four parameter-table columns — and table cells are single-line and
-  pipe-safe, so generated pages can no longer break the docs-site build.
-- Slugs are sanitized to file-safe names (`index`/`meta` reserved), closing a
-  path-traversal hole for hostile command names.
-- Hand-written files are never overwritten: the `generated_by: slashdocs`
-  marker now guards writes as well as deletion, and a page the guard skips is
-  retried on every future run (rather than being marked settled) until the
-  conflicting file is resolved.
-- JSON/HTML outputs are stateless (byte-compare), so a deleted output file is
-  regenerated on the next startup.
-- Upgrading from a pre-0.2.0 install no longer orphans pages whose slug
-  changed under the new sanitization — old state stays diffable so renamed
-  slugs are still detected as removed and cleaned up.
-- `generate()` now raises `OutputGenerationError` if any configured output
-  failed, instead of returning a Diff indistinguishable from "up to date";
-  `attach()`'s on_ready hook still never raises into the bot.
-- `@commands.bot_has_permissions`/`bot_has_guild_permissions` are no longer
-  introspected as a requirement on the invoking user — they describe what the
-  bot itself needs.
-- `commands_page()`'s HTML template substitution is single-pass, so a `title`
-  or `accent` that happens to contain a placeholder token (e.g. `__DATA__`)
-  can no longer corrupt the rendered page.
-- MDX code spans (usage examples, choices, aliases) use a CommonMark-safe
-  fence, so a value containing a backtick can no longer break out and leak
-  raw `<`/`{` into the page; subcommand headings are escaped the same way as
-  every other heading.
-- `meta.json` is now marker-guarded like every other generated file, and a
-  non-UTF-8 file colliding with a command's page no longer aborts the whole
-  write (it's treated as a hand-written file and skipped).
-- Hybrid commands' generated docs (MDX and the commands.html card) now show
-  both invocation forms (`/name` and the prefix form), not just the slash one.
-- A page orphaned while `.slashdocs-manifest.json` was missing or unreadable
-  is now cleaned up: `write_docs` falls back to scanning the output directory
-  for stale marker-bearing pages when there's no diff baseline to trust.
+- `generate()` raises `OutputGenerationError` if any configured output failed
+  (every output is still attempted first); `attach()`'s on_ready hook never
+  raises into the bot regardless. Generation runs off the event loop
+  (`asyncio.to_thread`).
+- Robustness hardening throughout the writer: MDX-significant characters and
+  backtick-breakout are escaped everywhere user-controlled text reaches a
+  page (descriptions, notes, badges, headings, table cells, code spans);
+  slugs are sanitized to file-safe names; hand-written files (including
+  `meta.json`) are never overwritten, and a page the overwrite guard skips is
+  retried on future runs instead of being marked settled; a page orphaned by
+  a lost, corrupt, or pre-0.2.0 state file is swept up rather than left
+  behind forever; a stray non-UTF-8 file can no longer abort a whole run.
 
 ### Removed
 - The `fmt=` parameter on `attach()` (replaced by `outputs=`).
