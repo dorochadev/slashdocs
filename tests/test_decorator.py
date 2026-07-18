@@ -29,6 +29,7 @@ def test_docs_on_command_object_uses_extras_dict() -> None:
 
 def test_get_extras_falls_back_to_callback_attribute() -> None:
     async def fn() -> None: ...
+
     docs(category="Fun")(fn)
     cmd = FakeCommand(fn)
     cmd.extras.clear()  # nothing stored on the object itself
@@ -48,5 +49,6 @@ def test_docs_on_non_command_raises_type_error() -> None:
 
 def test_get_extras_returns_none_when_absent() -> None:
     async def undecorated() -> None: ...
+
     assert get_extras(undecorated) is None
     assert get_extras(object()) is None

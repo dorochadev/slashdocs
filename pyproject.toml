@@ -41,6 +41,10 @@ packages = ["src/slashdocs"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+  # discord.py's own import-time warning on Python < 3.13; not ours to fix
+  "ignore:'audioop' is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100

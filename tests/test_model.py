@@ -72,7 +72,14 @@ def test_content_hash_changes_when_content_changes() -> None:
 
 def _asdict_shallow(c: CommandDoc) -> dict:
     return {
-        "name": c.name, "slug": c.slug, "kind": c.kind, "description": c.description,
-        "category": c.category, "params": c.params, "examples": c.examples,
-        "notes": c.notes, "aliases": c.aliases, "subcommands": c.subcommands,
+        "name": c.name,
+        "slug": c.slug,
+        "kind": c.kind,
+        "description": c.description,
+        "category": c.category,
+        "params": c.params,
+        "examples": c.examples,
+        "notes": c.notes,
+        "aliases": c.aliases,
+        "subcommands": c.subcommands,
     }
