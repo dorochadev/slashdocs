@@ -48,11 +48,11 @@ def _cooldown_text(doc: CommandDoc) -> str:
 def _badges(doc: CommandDoc) -> str:
     parts = []
     if doc.permissions:
-        parts.append("**Requires:** " + ", ".join(doc.permissions))
+        parts.append("**Requires:** " + ", ".join(_escape_text(p) for p in doc.permissions))
     if doc.cooldown_rate:
         parts.append(f"**Cooldown:** {_cooldown_text(doc)}")
     if doc.tier:
-        parts.append(f"👑 {doc.tier}")
+        parts.append(f"👑 {_escape_text(doc.tier)}")
     return " · ".join(parts)
 
 
@@ -74,7 +74,9 @@ def _params_table(params: tuple[ParamDoc, ...], *, heading: bool = True) -> list
     ]
     for p in params:
         required = "yes" if p.required else "no"
-        lines.append(f"| {p.name} | {p.type} | {required} | {_param_desc_cell(p)} |")
+        lines.append(
+            f"| {_cell(p.name)} | {_cell(p.type)} | {required} | {_param_desc_cell(p)} |"
+        )
     lines.append("")
     return lines
 

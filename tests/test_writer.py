@@ -216,3 +216,28 @@ def test_permission_cooldown_and_tier_badges() -> None:
     assert 'cooldown: "1/5s"' in out
     assert 'tier: "Premium"' in out
     assert "**Requires:** Ban Members, Booster Only · **Cooldown:** 1/5s · 👑 Premium" in out
+
+
+def test_badges_are_mdx_escaped() -> None:
+    doc = CommandDoc(
+        name="vip",
+        slug="vip",
+        kind="prefix",
+        description="d",
+        permissions=("<3 fans",),
+        tier="{Premium}",
+    )
+    out = render_command(doc)
+    badges_line = next(line for line in out.splitlines() if line.startswith("**Requires:**"))
+    assert badges_line == "**Requires:** \\<3 fans · 👑 \\{Premium}"
+
+
+def test_params_table_name_and_type_are_escaped() -> None:
+    doc = CommandDoc(
+        name="weird",
+        slug="weird",
+        kind="slash",
+        params=(ParamDoc(name="a|b<c", type="str|int<foo", required=True),),
+    )
+    out = render_command(doc)
+    assert "| a\\|b\\<c | str\\|int\\<foo | yes |" in out
