@@ -1,3 +1,5 @@
+import json
+
 from slashdocs.model import CommandDoc, Manifest, ParamDoc
 
 
@@ -10,12 +12,18 @@ def _sample_manifest() -> Manifest:
                 kind="slash",
                 description="Bet money on a coin flip.",
                 category="Economy",
+                notes="Requires economy.",
+                aliases=("cf",),
                 params=(
                     ParamDoc(
                         name="amount", type="integer", required=True, description="Amount to bet"
                     ),
                     ParamDoc(
-                        name="side", type="string", required=True, choices=("heads", "tails")
+                        name="side",
+                        type="string",
+                        required=True,
+                        choices=("heads", "tails"),
+                        default="heads",
                     ),
                 ),
                 examples=("/coinflip 500 heads",),
@@ -47,6 +55,11 @@ def test_canonical_json_is_deterministic() -> None:
     m = _sample_manifest()
     assert m.canonical_json() == _sample_manifest().canonical_json()
     assert '"schema_version":1' in m.canonical_json()  # compact separators, sorted keys
+
+
+def test_manifest_round_trips_through_json_text() -> None:
+    m = _sample_manifest()
+    assert Manifest.from_dict(json.loads(m.canonical_json())) == m
 
 
 def test_content_hash_changes_when_content_changes() -> None:
