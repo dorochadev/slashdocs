@@ -1,8 +1,13 @@
 import json
+import shutil
 from pathlib import Path
+
+import pytest
 
 from slashdocs.model import CommandDoc, Manifest, ParamDoc
 from slashdocs.page import render_page, write_page
+
+requires_node = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 
 
 def _manifest() -> Manifest:
@@ -78,3 +83,43 @@ def test_title_or_accent_containing_a_placeholder_token_does_not_corrupt_output(
     html = render_page(Manifest(), title="My __ACCENT__ Bot", accent="#123456")
     assert "<h1>My __ACCENT__ Bot</h1>" in html
     assert "--accent: #123456" in html
+
+
+def _extract_js_function(html: str, name: str) -> str:
+    """Pull one top-level `function name(...) { ... }` out of the embedded script,
+    by brace-matching from the `function name(` marker."""
+    start = html.index(f"function {name}(")
+    depth = 0
+    end = start
+    for i, ch in enumerate(html[start:], start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    return html[start:end]
+
+
+@requires_node
+def test_hybrid_commands_show_both_forms_in_the_browser() -> None:
+    import json
+    import subprocess
+
+    html = render_page(_manifest())
+    displayname_src = _extract_js_function(html, "displayName")
+    script = f"""
+    {displayname_src}
+    var prefix = "?";
+    console.log(JSON.stringify([
+      displayName({{kind: "hybrid", name: "balance"}}),
+      displayName({{kind: "slash", name: "ban"}}),
+      displayName({{kind: "prefix", name: "ping"}}),
+    ]));
+    """
+    result = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, timeout=10, check=True
+    )
+    names = json.loads(result.stdout)
+    assert names == ["/balance  ·  ?balance", "/ban", "?ping"]

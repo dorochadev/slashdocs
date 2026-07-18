@@ -103,7 +103,10 @@ h1 { font-size: 1.5rem; margin-bottom: 1rem; }
   var categories = Object.keys(counts).sort();
   var state = { category: null, query: "" };
 
-  function displayName(c) { return (c.kind === "prefix" ? prefix : "/") + c.name; }
+  function displayName(c) {
+    if (c.kind === "hybrid") return "/" + c.name + "  ·  " + prefix + c.name;
+    return (c.kind === "prefix" ? prefix : "/") + c.name;
+  }
 
   function el(tag, cls, text) {
     var node = document.createElement(tag);
