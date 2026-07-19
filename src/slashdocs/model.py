@@ -18,6 +18,8 @@ def _sha256(text: str) -> str:
 
 @dataclass(frozen=True)
 class ParamDoc:
+    """One command parameter, as it should be documented."""
+
     name: str
     type: str
     required: bool
@@ -28,6 +30,8 @@ class ParamDoc:
 
 @dataclass(frozen=True)
 class CommandDoc:
+    """One documented command. Subcommands are nested CommandDocs of their own."""
+
     name: str  # qualified name, e.g. "coinflip" or "config set"
     slug: str  # file-safe stem; "" for subcommands (rendered inside the parent page)
     kind: str  # "slash" | "prefix" | "hybrid"
@@ -44,6 +48,7 @@ class CommandDoc:
     subcommands: tuple[CommandDoc, ...] = ()
 
     def content_hash(self) -> str:
+        """Stable hash of this command's content, used to detect changes between runs."""
         return _sha256(_canonical(asdict(self)))
 
 
@@ -79,15 +84,20 @@ def _command_from_dict(data: dict[str, Any]) -> CommandDoc:
 
 @dataclass(frozen=True)
 class Manifest:
+    """The full set of documented commands for one bot, plus its command prefix."""
+
     commands: tuple[CommandDoc, ...] = ()
     prefix: str = "!"
     schema_version: int = 2
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert to a plain dict, e.g. for JSON serialization."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Manifest:
+        """Parse a dict produced by to_dict(). Missing fields fall back to their
+        current default, so a dict from an older schema version still parses."""
         return cls(
             commands=tuple(_command_from_dict(c) for c in data.get("commands", ())),
             prefix=data.get("prefix", "!"),
@@ -95,7 +105,9 @@ class Manifest:
         )
 
     def canonical_json(self) -> str:
+        """Deterministic JSON text: same manifest always serializes identically."""
         return _canonical(self.to_dict())
 
     def content_hash(self) -> str:
+        """Stable hash of the whole manifest's content."""
         return _sha256(self.canonical_json())

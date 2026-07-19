@@ -16,6 +16,8 @@ logger = logging.getLogger("slashdocs")
 
 @dataclass(frozen=True)
 class Diff:
+    """Command slugs that changed between two manifests, by category."""
+
     added: tuple[str, ...] = ()
     changed: tuple[str, ...] = ()
     removed: tuple[str, ...] = ()
@@ -26,11 +28,16 @@ class Diff:
 
 
 def compute_diff(old: Manifest | None, new: Manifest) -> Diff:
+    """Diff two manifests by slug and content hash. `old=None` means "no previous
+    state" (e.g. first run): everything in `new` comes back as added, and nothing
+    is ever `removed` since there's no baseline to compare against. A prefix
+    change invalidates every common slug as `changed`, since the prefix is
+    rendered into every page regardless of whether that command's own fields did."""
     new_hashes = {c.slug: c.content_hash() for c in new.commands}
     if old is None:
         return Diff(added=tuple(sorted(new_hashes)))
     old_hashes = {c.slug: c.content_hash() for c in old.commands}
-    prefix_changed = old.prefix != new.prefix  # prefix is rendered into every page
+    prefix_changed = old.prefix != new.prefix
     return Diff(
         added=tuple(sorted(s for s in new_hashes if s not in old_hashes)),
         changed=tuple(
@@ -45,6 +52,8 @@ def compute_diff(old: Manifest | None, new: Manifest) -> Diff:
 
 
 def load_state(out_dir: Path) -> Manifest | None:
+    """Load the previous manifest from out_dir, or None if there isn't a usable one
+    (no state file yet, or it's corrupt) — compute_diff treats None as "first run"."""
     path = out_dir / STATE_FILENAME
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

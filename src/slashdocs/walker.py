@@ -272,6 +272,10 @@ def _slugify(name: str) -> str:
 
 
 def _claim_slug(name: str, slugs: set[str], *, fallback: str | None = None) -> str:
+    """Reserve a unique, file-safe slug for `name`. If the sanitized name is already
+    taken or reserved, try `fallback` (e.g. a "prefix-" prefixed name so a prefix
+    command doesn't collide with a same-named slash command); if that's taken too,
+    or there's no fallback, append a counter until one is free."""
     base = _slugify(name)
     if base in _RESERVED_SLUGS or base in slugs:
         base = _slugify(fallback) if fallback else f"{base}-cmd"
